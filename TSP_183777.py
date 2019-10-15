@@ -143,41 +143,59 @@ class BasicTSP:
 
         childA = []
         childB = []
-        
-        strip = [2, 3, 4, 5]
+
+        strip = [3, 4, 5]
+        relA = {}
+        relB = {}
 
         for i in range(0, len(strip)):
             index = strip[i]
-            tempA.insert(index, indA.genes[index])
-            tempB.insert(index, indB.genes[index])
+            print("index>>", index)
+            tempB.insert(index, indA.genes[index])
+            tempA.insert(index, indB.genes[index])
+            A = indA.genes[index]
+            B = indB.genes[index]
+            relB[A] = B
+            relA[B] = A
+
         print("tempA, tempB>>>")
         print(tempA,tempB)
 
-        a = 0
-        b = 0
-        i = 0
-        j = 0
-        while i < self.genSize and j < self.genSize:
-            if a not in strip:
-                if indB.genes[i] not in tempA and indB.genes[i] not in childA:
-                    childA.insert(a, indB.genes[i])
-                    a += 1
-                else:
-                    i += 1
-            if b not in strip:
-                if indA.genes[j] not in tempB and indA.genes[j] not in childB:
-                    childB.insert(b, indA.genes[j])
-                    b += 1
-                else:
-                    j += 1
-            else:
-                if a in strip:
-                    childA.insert(a, indA.genes[a])
-                    a += 1                     
-                if b in strip:
-                    childB.insert(b, indB.genes[b])
-                    b += 1    
+        print("relA>>>",relA)
+        print("relB>>>",relB)
 
+        j = 0
+        for i in range(0, self.genSize):
+            if i not in strip:
+                if indA.genes[i] not in tempA and indA.genes[i] not in childA:
+                    childA.insert(i, indA.genes[i])
+                else:
+                    value = relA[indA.genes[i]]
+                    while j < len(relA):
+                        if value not in childA and value not in tempA:
+                            childA.insert(i, value)
+                            break
+                        else:
+                            value = relA[value]
+                        j +=1
+                if indB.genes[i] not in tempB and indB.genes[i] not in childB:
+                    childB.insert(i, indB.genes[i])
+                else:
+                    value = relB[indB.genes[i]]
+                    while j < len(relB):
+                        if value not in childB and value not in tempB:
+                            childB.insert(i, value)
+                            break
+                        else:
+                            value = relB[value]
+                        j +=1
+            elif i in strip:
+                childA.insert(i, indB.genes[i])
+                childB.insert(i, indA.genes[i])
+
+        print("children>>>")
+        print(childA, childB)
+        return [childA, childB]
 
     def reciprocalExchangeMutation(self, ind):
         """
@@ -189,7 +207,26 @@ class BasicTSP:
         """
         Your Inversion Mutation implementation
         """
-        pass
+        print("random>>",random.random())
+        print("mutation rate>>>",self.mutationRate)
+        if random.random() > self.mutationRate:
+            return
+
+        indexStart = random.randint(0, self.genSize-1)
+        indexEnd = random.randint(0, self.genSize-1)
+
+        temp = ind[indexStart:indexEnd+1]
+        temp.reverse()
+
+
+        j = 0
+        for i in range(indexStart, indexEnd+1):
+            ind[i] = temp[j]
+            j += 1
+        
+        print("ind>>>",ind)
+        #ind.computeFitness()
+        #self.updateBest(ind)
 
     def crossover(self, indA, indB):
         """
@@ -275,11 +312,12 @@ class BasicTSP:
             print("parent B: ",Parent[1].genes)
             
             #cross over
-            self.uniformCrossover(Parent[0],Parent[1])
-            print("child: ",child)
+            child = self.pmxCrossover(Parent[0],Parent[1])
+            #print("child: ",child)
             
             #Mutation
-            #self.mutation(child)
+            print("mutation step>>>")
+            self.inversionMutation(child[0])
             
             print ("Total iterations: ",self.iteration)
             print ("Best Solution: ", self.best.getFitness())
@@ -317,7 +355,7 @@ problem_file = sys.argv[1]
 
 # inputs: File Name, Popuation Size, Mutation Rate, Max Iterations
 
-ga = BasicTSP(sys.argv[1], 17, 0.1, 1)
+ga = BasicTSP(sys.argv[1], 17, 0.9, 1)
 ga.readInstance()
 ga.initPopulation()
 ga.search()
