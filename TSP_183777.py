@@ -1,5 +1,5 @@
 """
-Author:
+Author: Pranav Srivastava
 file:
 Rename this file to TSP_x.py where x is your student number 
 """
@@ -33,10 +33,11 @@ class BasicTSP:
         self.data           = {}
 
         self.readInstance()
-        self.initPopulation()
-
+        #self.initPopulation()
+        
         self.children = []
-
+        self.selectedchildren = []
+        self.configuration = {}
 
     def readInstance(self):
         """
@@ -57,23 +58,34 @@ class BasicTSP:
         for i in range(0, self.popSize):
             individual = Individual(self.genSize, self.data)
             individual.computeFitness()
+            print("fitness>>",individual.fitness)
+            print("chromosome>>",individual.genes)
             self.population.append(individual)
 
         self.best = self.population[0].copy()
-        print("best>", self.best.__dict__)
+        #print("best>", self.best.__dict__)
         for ind_i in self.population:
             if self.best.getFitness() > ind_i.getFitness():
                 self.best = ind_i.copy()
 
     def initNewPopulation(self):
         """
-        Creating random individuals in the population
+        Creating new population from the children of last generation
         """
-        for i in range(0, self.popSize):
+        #remove previous population
+        self.population = []
+
+        for i in range(0, len(self.selectedchildren)):
             individual = Individual(self.genSize, self.data)
+            individual.setGene(self.selectedchildren[i])
             individual.computeFitness()
             self.population.append(individual)
 
+        self.best = self.population[0].copy()
+        for ind_i in self.population:
+            if self.best.getFitness() > ind_i.getFitness():
+                self.best = ind_i.copy()
+        print ("Best initial sol: ",self.best.getFitness())
 
     def updateBest(self, candidate):
         if self.best == None or candidate.getFitness() < self.best.getFitness():
@@ -89,33 +101,83 @@ class BasicTSP:
 
         while rand1 == rand2:
             rand2 =  random.randint(0, self.popSize-1)
+        print("random>>>",rand1)
 
         indA = self.matingPool[ rand1 ]
         indB = self.matingPool[ rand2 ]
         #print(indA, indB)
         return [indA, indB]
 
-    def stochasticUniversalSampling(self):
+    def stochasticUniversalSampling(self, ind):
         """
         Your stochastic universal sampling Selection Implementation
         """
-        pass
+        self.selectedchildren = []
+        individuals = []
+        for i in range(0, len(ind)):
+            individual = Individual(self.genSize, self.data)
+            individual.setGene(ind[i])
+            individual.computeFitness()
+            individuals.append(individual)
+            print("individuals>>>", individuals[i].fitness)
+        #F is the sum of the fitness values of all chromosomes in the population
+        F = 0
 
+        # N is the number of parents to select
+        N = self.popSize
+
+        #P is the distance between successive points
+        P = 0
+        Pointers = []
+        Ruler = []
+        point = 0
+        pickedpop = []
+
+        fractionOfTotal = 0
+        #calculate total fitness of the population
+        for i in range(0,len(individuals)):
+            F = F + individuals[i].fitness
+
+        Ruler.append(fractionOfTotal)
+        for i in range(0, len(individuals)):            
+            fractionOfTotal = fractionOfTotal + individuals[i].fitness/F
+            Ruler.append(fractionOfTotal)
+        print("ruler", Ruler)              
+
+        P = 1/N
+        print("P___",P)
+
+        point = random.uniform(0,P)
+
+
+        for i in range(0, N):
+            for j in range(0, len(Ruler)):
+                if point >= Ruler[j] and point <= Ruler[j+1]:
+                    self.selectedchildren.append(individuals[j].genes)
+            point = point + P
+            print("point>>>",point)
+ 
+        print("picked pop>", self.selectedchildren)
+        
     def uniformCrossover(self, indA, indB):
 
         """
         Your Uniform Crossover Implementation
         """
-        randomIndex = [2,4,6,7]
+        randomIndex = []
         childA = [] 
         childB = []
 
         tempA = [] 
         tempB = []
         #Ranomly select positions that will no longer change
-        """ randombits = self.genSize/2
-        for i in range(0, randombits):
-            randomIndex+ = random.random() """
+
+        rand = 0
+        for i in range(0, self.genSize):
+            rand = random.randint(rand, self.genSize-1)
+            if rand not in randomIndex:
+                randomIndex.append(rand)
+
         for i in range(0, len(randomIndex)):
             index = randomIndex[i]
             tempA.insert(index, indA.genes[index])
@@ -149,8 +211,9 @@ class BasicTSP:
                     childB.insert(b, indB.genes[b])
                     b += 1    
 
-        print("children")
-        print(childA, childB)
+        #print("children")
+        #print(childA, childB)
+        return [childA, childB]
 
     def randomStrip(self):
         strip = []
@@ -172,7 +235,7 @@ class BasicTSP:
 
         strip = []
         strip = self.randomStrip()
-        print("strip>>>",strip)
+        #print("strip>>>",strip)
 
         relA = {}
         relB = {}
@@ -216,42 +279,53 @@ class BasicTSP:
                 childA.insert(i, indB.genes[i])
                 childB.insert(i, indA.genes[i])
 
-        print("children>>>")
-        print(childA, childB)
+        #print("children>>>")
+        #print(childA, childB)
         return [childA, childB]
 
     def reciprocalExchangeMutation(self, ind):
         """
-        Your Reciprocal Exchange Mutation implementation
+        Mutate an individual by swaping two cities with certain probability (i.e., mutation rate)
         """
-        pass
+
+        if random.random() > self.mutationRate:
+            return
+
+        indexA = random.randint(0, self.genSize-1)
+        indexB = random.randint(0, self.genSize-1)
+
+        tmp = ind[0].genes[indexA]
+        ind[0].genes[indexA] = ind[0].genes[indexB]
+        ind[0].genes[indexB] = tmp
+
+        ind[0].computeFitness()
+        self.updateBest(ind[0])
+        return ind[0].genes
 
     def inversionMutation(self, ind):
         """
         Your Inversion Mutation implementation
         """
-        if random.random() > self.mutationRate:
-            return
+        #if random.random() > self.mutationRate:
+        #    return
 
+        #start index of the strip
         indexStart = random.randint(0, self.genSize-1)
+
+        #end index of the strip
         indexEnd = random.randint(indexStart, self.genSize-1)
 
-
-        print("indexStart>>>",indexStart)
-        print("indexEnd>>>",indexEnd)
-
-        temp = ind[indexStart:indexEnd+1]
-        print("temp>>>",temp)
+        temp = ind[0].genes[indexStart:indexEnd+1]
+        #reverse the strip
         temp.reverse()
 
-
+        #update the chromose with the reversed strip
         j = 0
         for i in range(indexStart, indexEnd+1):
-            ind[i] = temp[j]
+            ind[0].genes[i] = temp[j]
             j += 1
-        
-        print("ind>>>",ind)
-        return ind
+
+        return ind[0].genes
         #ind.computeFitness()
         #self.updateBest(ind)
 
@@ -284,19 +358,14 @@ class BasicTSP:
         """
         Mutate an individual by swaping two cities with certain probability (i.e., mutation rate)
         """
-
         if random.random() > self.mutationRate:
             return
         indexA = random.randint(0, self.genSize-1)
         indexB = random.randint(0, self.genSize-1)
 
-        """     tmp = ind.genes[indexA]
-                ind.genes[indexA] = ind.genes[indexB]
-                ind.genes[indexB] = tmp
-        """
-        tmp = ind[indexA]
-        ind[indexA] = ind[indexB]
-        ind[indexB] = tmp
+        tmp = ind.genes[indexA]
+        ind.genes[indexA] = ind.genes[indexB]
+        ind.genes[indexB] = tmp
 
         ind.computeFitness()
         self.updateBest(ind)
@@ -307,9 +376,9 @@ class BasicTSP:
         """
         self.matingPool = []
         for ind_i in self.population:
-            print("call from mating pool")
+            #print("call from mating pool")
             self.matingPool.append( ind_i.copy() )
-
+        print("size of mating pool>>",len(self.matingPool))
 
     def newGeneration(self):
         #replacing current population with a new one
@@ -323,9 +392,10 @@ class BasicTSP:
         child = []
 
         self.mates = []
-
+        crossedChild = []
+        children = []
         #for i in range(0, 3):
-        print("length of population>>>",len(self.population))
+        #print("length of population>>>",len(self.population))
         for i in range(0, len(self.population)):
             """
             Depending of your experiment you need to use the most suitable algorithms for:
@@ -335,40 +405,61 @@ class BasicTSP:
             """
             #random selection
             Parent = self.randomSelection()
-            print("parent A: ",Parent[0].genes)
-            #print(Parent[1].__dict__)
-            print("parent B: ",Parent[1].genes)
+            #print("parent A: ",Parent[0].genes)
             
             #cross over
-            child = self.pmxCrossover(Parent[0],Parent[1])
-            #print("child: ",child[0].)
+            if ga.configuration[config]["crossover"] == "pmx":
+                child = self.pmxCrossover(Parent[0],Parent[1])
+            elif ga.configuration[config]["crossover"] == "ox":
+                child = self.uniformCrossover(Parent[0],Parent[1])
+            print("child: ",child)
+            
             
             #Mutation
-            print("mutation step>>>")
+            #print("mutation step>>>")
             for childIndex in range(0,len(child)):
+                ind = []
+                individual = Individual(self.genSize, self.data)
+                individual.setGene(child[childIndex])
+                ind.append(individual)
+
+                crossedChild.append(child[childIndex])
                 mutatedChild = []
-                mutatedChild = self.inversionMutation(child[childIndex])                    
-                if mutatedChild not in self.children and mutatedChild is not None and len(self.children)<len(self.population):
-                    self.children.append(mutatedChild)
+                
+                if ga.configuration[config]["mutation"] == "reciex":
+                    mutatedChild = self.reciprocalExchangeMutation(ind)
+                elif ga.configuration[config]["mutation"] == "inversion":
+                    mutatedChild = self.inversionMutation(ind)     
 
-        print("new children>>>", self.children)
-        self.population = []
-        print("population>>",self.population)
-        for i in range(0, len(self.children)):
-            individual = Individual(self.genSize, self.data)
-            individual.setGene(self.children[i])
-            #individual.computeFitness()
-            self.population.append(individual)
-        print("population>>",self.population)
+                if mutatedChild not in children and mutatedChild is not None:
+                    children.append(mutatedChild)
+
+        if len(children) == 0 or len(children)<len(self.population):
+            for i in range(0, len(self.population)):
+                if len(children) < len(self.population):
+                    children.append(crossedChild[i])
 
 
-        #Individual.setGene(self.children[0])
-        #self.genes = self.children
-
-        #self.population = self.children
-        #print("new genes>>>",self.genes)
+        print("new children>>>", children)
+        if ga.configuration[config]["selection"] == "random":
+        #this is to select the children randomly
+            self.randomChildSelection(children)
+        elif ga.configuration[config]["selection"] == "sus":
+            self.stochasticUniversalSampling(children)
         self.initNewPopulation()
 
+    def randomChildSelection(self, children):
+        rand = 0
+        self.selectedchildren = []
+        while len(self.selectedchildren) < self.popSize:
+            print("fuzzy rand", rand)
+            if children[rand] not in self.selectedchildren:
+                self.selectedchildren.append(children[rand])
+                rand = random.randint(0, self.popSize-1)
+            else:
+                rand1 = random.randint(1, self.popSize-1)
+                rand = rand1
+        print("selected children>>>",self.selectedchildren)
 
     def GAStep(self):
         """
@@ -393,7 +484,7 @@ class BasicTSP:
 
 
         print ("Total iterations: ",self.iteration)
-        print ("Best Solution: ", self.best.getFitness())
+        print ("Best Solution: ____________", self.best.getFitness())
 
 if len(sys.argv) < 2:
     print ("Error - Incorrect input")
@@ -405,7 +496,23 @@ problem_file = sys.argv[1]
 
 # inputs: File Name, Popuation Size, Mutation Rate, Max Iterations
 
-ga = BasicTSP(sys.argv[1], 2, 0.9, 2)
-ga.readInstance()
-ga.initPopulation()
+configchoice = input("plese enter the configuration number you want to run...")
+config = int(configchoice)
+
+ga = BasicTSP(sys.argv[1], 4, 0.1, 100)
+
+ga.configuration[1] =  {"initalsol":"random", "crossover":"ox", "mutation":"inversion", "selection":"random"}
+ga.configuration[2] =  {"initalsol":"random", "crossover":"pmx", "mutation":"reciex", "selection":"random"}
+ga.configuration[3] =  {"initalsol":"random", "crossover":"ox", "mutation":"reciex", "selection":"sus"}
+ga.configuration[4] =  {"initalsol":"random", "crossover":"ox", "mutation":"reciex", "selection":"sus"}
+ga.configuration[5] =  {"initalsol":"random", "crossover":"pmx", "mutation":"inversion", "selection":"sus"}
+ga.configuration[6] =  {"initalsol":"random", "crossover":"ox", "mutation":"inversion", "selection":"sus"}
+ga.configuration[7] =  {"initalsol":"heuristic", "crossover":"pmx", "mutation":"reciex", "selection":"sus"}
+ga.configuration[8] =  {"initalsol":"heuristic", "crossover":"ox", "mutation":"inversion", "selection":"sus"}
+
+#only initialize the population randomly when picking the specific configuration
+if ga.configuration[config]["initalsol"] == "random":
+    ga.initPopulation()
+
 ga.search()
+print(ga.configuration[config]["initalsol"])
